@@ -1,11 +1,7 @@
 ﻿namespace WaterMeterAPI.Models.DB
 {
-    public abstract class DBModel
+    public abstract class DBModel(int id)
     {
-        public int Id { get; set; }
-        public DBModel(int id) 
-        {
-            Id = id;
-        }
+        public int Id { get; set; } = id;
     }
 }

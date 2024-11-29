@@ -7,11 +7,11 @@ namespace WaterMeterAPI.Models.DB
         public DbSet<AccountModel> Accounts { get; set; }
         public DBContext(DbContextOptions<DBContext> options) : base(options)
         {
-            //if (!Kasutajad?.Where(x => x.IsAdmin).Any() ?? false)
-            //{
-            //    Kasutajad.Add(new(0, "admin", "admin", "admin", "admin", true));
-            //    SaveChanges();
-            //}
+            if (!Accounts?.Where(x => x.Role.Equals("Admin")).Any() ?? false)
+            {
+                Accounts.Add(new(0, "Admin", "Admin", "Male", "admin@gmail.com", "admin", "Admin"));
+                SaveChanges();
+            }
         }
     }
 }

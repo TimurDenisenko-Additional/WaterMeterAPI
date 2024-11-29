@@ -1,4 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using WaterMeterAPI.Models;
 using WaterMeterAPI.Models.DB;
 
@@ -6,42 +8,49 @@ namespace WaterMeterAPI.Controllers
 {
     [Route("[controller]")]
     [ApiController]
-    public class AccountModelController : ControllerBase
+    public class AccountModelController(DBContext DB, IMemoryCache memoryCache) : ControllerBase
     {
-        private readonly DBContext DB;
-        public AccountModelController(DBContext DB)
+        private IMemoryCache _memoryCache { get; } = memoryCache;
+
+        private AccountModel? TryGetCurrentUser() =>
+            ((GetCurrentUser() as OkObjectResult)?.Value as AccountModel ?? null);
+        private void SetCurrentUser(AccountModel? user)
         {
-            this.DB = DB;
+            if (user != null)
+                _memoryCache.Set("currentUser", user);
+            else
+                _memoryCache.Remove("currentUser");
         }
 
         // GET: AccountModel
         [HttpGet]
-        public List<AccountModel> GetAccounts() => DB.Accounts.ToList();
+        public List<AccountModel> GetAccounts() => [.. DB.Accounts];
 
         // GET: AccountModel/id
         [HttpGet("{id}")]
-        public IActionResult GetAccountModel(int id) => DB.Accounts.ElementOrDefault(id) == null ? BadRequest(new { message = "Kasutajat ei leitud" }) : Ok(DB.Accounts.ElementOrDefault(id));
+        public async Task<IActionResult> GetAccountModel(int id) => await DB.Accounts.ElementAtNoTrack(id) == null ? 
+            BadRequest(new { message = "Kasutajat ei leitud" }) : Ok(await DB.Accounts.ElementAtNoTrack(id));
 
         // DELETE: AccountModel/delete/id
         [HttpDelete("delete/{id}")]
         public async Task<IActionResult> Delete(int id)
         {
-            AccountModel? AccountModel = await DB.Accounts.ElementOrDefault(id);
+            AccountModel? AccountModel = await DB.Accounts.ElementAtWithTrack(id);
             if (AccountModel == null)
                 return BadRequest(new { message = "Kasutajat ei leitud" });
-            DB.Accounts.ToList().RemoveAt(id);
-            DB.SaveChanges();
+            DB.Accounts.Remove(AccountModel);
+            await DB.SaveChangesAsync();
             return Ok(DB.Accounts);
         }
 
         // POST: AccountModel/create/firstname/lastname/gender/email/password
         [HttpPost("create/{firstname}/{lastname}/{gender}/{email}/{password}")]
-        public IActionResult Create(string firstname, string lastname, string gender, string email, string password)
+        public async Task<IActionResult> Create(string firstname, string lastname, string gender, string email, string password)
         {
-            if (!DB.Accounts.Where(x => x.Email == email).Any())
+            if (!await DB.Accounts.Where(x => x.Email == email).AnyAsync())
             {
-                DB.Accounts.Add(new AccountModel(0, firstname, lastname, gender, email, password, "User"));
-                DB.SaveChanges();
+                await DB.Accounts.AddAsync(new AccountModel(0, firstname, lastname, gender, email, password, "User"));
+                await DB.SaveChangesAsync();
                 return Ok(DB.Accounts);
             }
             return BadRequest(new { message = "Dubleeritud Kasutaja" });
@@ -49,13 +58,12 @@ namespace WaterMeterAPI.Controllers
 
         // GET: AccountModel/login/username/password
         [HttpGet("login/{email}/{password}")]
-        public IActionResult Login(string email, string password)
+        public async Task<IActionResult> Login(string email, string password)
         {
-            AccountModel? checkingAccountModel = DB.Accounts.Where(x => x.Email == email).ElementAtOrDefault(0);
+            AccountModel? checkingAccountModel = await DB.Accounts.FirstOrDefaultAsync(x => x.Email == email);
             if (checkingAccountModel != null && checkingAccountModel.Password == password)
             {
-                //isLogged = true;
-                //currentAccountModelId = checkingAccountModel.Id;
+                SetCurrentUser(checkingAccountModel);
                 return Ok(true);
             }
             else
@@ -66,47 +74,58 @@ namespace WaterMeterAPI.Controllers
 
         // POST: AccountModel/register/firstname/lastname/gender/email/password
         [HttpPost("register/{firstname}/{lastname}/{gender}/{email}/{password}")]
-        public IActionResult Register(string firstname, string lastname, string gender, string email, string password)
+        public async Task<IActionResult> Register(string firstname, string lastname, string gender, string email, string password)
         {
-            if (!DB.Accounts.Where(x => x.Email == email).Any())
+            if (!await DB.Accounts.AnyAsync(x => x.Email == email))
             {
-                Create(firstname, lastname, gender, email, password);
-                //isLogged = true;
-                //currentAccountModelId = DB.Accounts.Count();
+                await Create(firstname, lastname, gender, email, password);
+                SetCurrentUser(await DB.Accounts.FirstAsync(x => x.Email == email));
                 return Ok(true);
             }
             else
             {
-                //isLogged = false;
-                //currentAccountModelId = -1;
                 return BadRequest(new { message = "Dubleeritud AccountModel" });
             }
         }
 
-        //// GET: AccountModel/logout
-        //[HttpGet("logout")]
-        //public string Logout()
-        //{
-        //    if (isLogged)
-        //    {
-        //        isLogged = false;
-        //        currentAccountModelId = -1;
-        //        return "Ole välja logitud";
-        //    }
-        //    else
-        //        return "Sa ei ole sisse logitud";
-        //}
 
-        //// GET: AccountModel/get-current
-        //[HttpGet("get-current")]
-        //public IActionResult GetCurrent() => DB.Accounts.ElementOrDefault(currentAccountModelId) == null ? NotFound(new { message = "AccountModelt ei leitud" }) : Ok(DB.Accounts.ElementOrDefault(currentAccountModelId));
+        // GET: AccountModel/fullName
+        [HttpGet("fullName")]
+        public IActionResult GetFullName()
+        {
+            AccountModel? currentUser = TryGetCurrentUser();
+            return currentUser == null ? BadRequest(new { message = "Kasutajat ei leitud" }) : Ok($"{currentUser.FirstName} {currentUser.LastName}");
+        }
 
-        //// GET: AccountModel/is-auth
-        //[HttpGet("is-auth")]
-        //public bool IsLogged() => isLogged;
+        // GET: AccountModel/isAdmin
+        [HttpGet("isAdmin")]
+        public bool IsAdmin() =>
+            (TryGetCurrentUser()?.Role ?? "") == "Admin";
 
-        //// GET: AccountModel/is-admin
-        //[HttpGet("is-admin")]
-        //public async Task<bool> IsAdmin() => (await DB.Accounts.ElementOrDefault(currentAccountModelId) ?? new()).IsAdmin;
+        // GET: AccountModel/currentUser
+        [HttpGet("currentUser")]
+        public IActionResult GetCurrentUser()
+        {
+            _memoryCache.TryGetValue("currentUser", out AccountModel? account);
+            return account == null ? BadRequest(new { message = "Kasutajat ei leitud" }) : Ok(account);
+        }
+
+        // GET: AccountModel/isAuthorized
+        [HttpGet("isAuthorized")]
+        public bool IsAuthorized() =>
+            TryGetCurrentUser() != null;
+
+        // GET: AccountModel/logout
+        [HttpGet("logout")]
+        public IActionResult Logout()
+        {
+            if (IsAuthorized())
+            {
+                SetCurrentUser(null);
+                return Ok(new { message = "Ole välja logitud" });
+            }
+            else
+                return BadRequest(new { message = "Sa ei ole sisse logitud" });
+        }
     }
 }
