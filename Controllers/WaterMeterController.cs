@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
 using WaterMeterAPI.Models;
 using WaterMeterAPI.Models.DB;
 
@@ -8,16 +7,14 @@ namespace WaterMeterAPI.Controllers
 {
     [Route("[controller]")]
     [ApiController]
-    public class WaterMeterController(DBContext DB, IMemoryCache memoryCache) : ControllerBase
+    public class WaterMeterController(DBContext DB) : ControllerBase
     {
-        private IMemoryCache _memoryCache { get; } = memoryCache;
-
         // GET: WaterMeter
         [HttpGet]
         public List<WaterMeterModel> GetWaterMeters() => [.. DB.WaterMeters];
 
         // GET: WaterMeter/id
-        [HttpGet]
+        [HttpGet("{id}")]
         public async Task<IActionResult> GetWaterMeter(int id) => await DB.WaterMeters.ElementAtNoTrack(id) == null ?
             BadRequest(new { message = "Veenäitu ei leitud" }) : Ok(await DB.WaterMeters.ElementAtNoTrack(id));
 
