@@ -6,13 +6,21 @@ using System.Net;
 using System.Text;
 using WaterMeterAPI.Models;
 using WaterMeterAPI.Models.DB;
+using Microsoft.Extensions.Caching.Memory;
+using Newtonsoft.Json.Linq;
 
 namespace WaterMeterAPI.Controllers
 {
     [Route("[controller]")]
     [ApiController]
-    public class WaterMeterController(DBContext DB) : ControllerBase
+    public class WaterMeterController(DBContext DB, IMemoryCache memoryCache) : ControllerBase
     {
+        private IMemoryCache _memoryCache { get; } = memoryCache;
+        private AccountModel? TryGetCurrentUser()
+        {
+            _memoryCache.TryGetValue("currentUser", out AccountModel? account);
+            return account;
+        }
 
         // GET: WaterMeter
         [HttpGet]
@@ -57,15 +65,55 @@ namespace WaterMeterAPI.Controllers
         public async Task<IActionResult> CreateGivenNonExistentEmail(string email, string address, int apartament, DateTime date, int coldWater, int warmWater, bool paymentStatus) =>
             await CreateWaterMeter(email, address, apartament, date, coldWater, warmWater, paymentStatus);
 
-        // GET: WaterMeter/getMonthlyBill/email/month
-        [HttpGet("getMonthlyBill/{email}/{year}/{month}")]
-        public async Task<IActionResult> GetMonthlyBill(string email, int year, int month)
+        // POST: WaterMeter/addWaterMeter/address/apartament/coldWater/warmWater
+        [HttpPost("addWaterMeter/{address}/{apartament}/{coldWater}/{warmWater}")]
+        public async Task<IActionResult> AddWaterMeter(string address, int apartament, int coldWater, int warmWater)
         {
-            WaterMeterModel? waterMeter = await DB.WaterMeters.FirstOrDefaultAsync(x => x.Date.Year == year && x.Date.Month == month && x.Email == email);
+            AccountModel? currentUser = TryGetCurrentUser();
+            if (currentUser == null)
+                return BadRequest(new { message = "Te ei ole sisse logitud" });
+            string subject = "Põhjalik kinnitamine: vee näitude lisamine";
+            string body = $@"
+                <html>
+                <body>
+                <div style=""font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px; border-radius: 8px;"">
+                    <h2 style=""text-align: center; color: #333;"">Aitäh, et lisasite vee näidud!</h2>
+                    <p style=""font-size: 16px; color: #555;"">Tere, {currentUser.FirstName} {currentUser.LastName}!</p>
+                    <p style=""font-size: 16px; color: #555;"">Teie vee näidud on edukalt salvestatud järgmistelt aadressilt:</p>
+                
+                    <div style=""background-color: #fff; padding: 20px; border-radius: 8px; margin-bottom: 20px;"">
+                        <p><strong>Aadress:</strong> {address}, Korter: {apartament}</p>
+                        <p><strong>Külma vee näidud:</strong> {coldWater} m³</p>
+                        <p><strong>Küppa vee näidud:</strong> {warmWater} m³</p>
+                    </div>
+
+                    <p style=""font-size: 16px; color: #555;"">Teie näidud on edukalt salvestatud meie süsteemis. Kui teil on küsimusi, võtke meiega ühendust.</p>
+                
+                    <div style=""text-align: center; margin-top: 30px;"">
+                        <p style=""font-size: 14px; color: #777;"">Kui teil on küsimusi, võtke meiega ühendust.</p>
+                        <p style=""font-size: 14px; color: #888;"">Lugupidamisega, Teie Teenuse Pakkuja</p>
+                    </div>
+                </div>
+                </body>
+                </html>";
+            SendEmail(currentUser.Email, subject, body);
+            return Ok(await CreateWaterMeter(currentUser.Email, address, apartament, DateTime.Now, coldWater, warmWater, false));
+        }
+
+        // GET: WaterMeter/getMonthlyBill/year/month
+        [HttpGet("getMonthlyBill/{year}/{month}")]
+        public async Task<IActionResult> GetMonthlyBill(int year, int month)
+        {
+            AccountModel? currentUser = TryGetCurrentUser();
+            if (currentUser == null)
+                return BadRequest(new { message = "Te ei ole sisse logitud" });
+            WaterMeterModel? waterMeter = await DB.WaterMeters.FirstOrDefaultAsync(x => x.Date.Year == year && x.Date.Month == month && x.Email == currentUser.Email);
             if (waterMeter == null)
                 return BadRequest(new { message = "Sellel inimesel puuduvad selle kuu veemõõtjate näidud" });
 
             string body = @$"
+                <html>
+                <body>
                 <div class=""container"" style=""width: 80%; margin: 0 auto; font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 20px; border-radius: 8px;"">
                     <div class=""header"" style=""text-align: center; margin-bottom: 20px;"">
                         <h2 style=""font-size: 28px; font-weight: bold; color: #333;"">Arve - {month} {year}</h2>
@@ -74,7 +122,7 @@ namespace WaterMeterAPI.Controllers
 
                     <div class=""billing-info"" style=""font-size: 16px; line-height: 1.8; margin-bottom: 30px; background-color: #fff; padding: 20px; border-radius: 8px;"">
                         <h3 style=""font-size: 22px; color: #333;"">Kliendi teave:</h3>
-                        <p><strong>Elektronposti aadress:</strong> {email}</p>
+                        <p><strong>Elektronposti aadress:</strong> {currentUser.Email}</p>
                         <p><strong>Aadress:</strong> {waterMeter.Address}, korter: {waterMeter.Apartment}</p>
                     </div>
 
@@ -96,12 +144,14 @@ namespace WaterMeterAPI.Controllers
                     <div class=""signature"" style=""text-align: center; margin-top: 40px;"">
                         <p style=""font-size: 14px; color: #888;"">See arve on genereeritud automaatselt, seetõttu ei ole allkiri vajalik.</p>
                     </div>
-                </div>";
-            SendEmail(email, "Arve", body);
+                </div>
+                </body>
+                </html>";
+            SendEmail(currentUser.Email, "Arve", body);
             return Ok(waterMeter);
         }
 
-        private string SendEmail(string email, string subject, string body)
+        private static string SendEmail(string email, string subject, string body)
         {
             try
             {
