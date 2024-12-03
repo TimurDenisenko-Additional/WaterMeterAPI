@@ -151,6 +151,62 @@ namespace WaterMeterAPI.Controllers
             return Ok(waterMeter);
         }
 
+        // GET: WaterMeter/sendReminder/email
+        [HttpGet]
+        public async Task<IActionResult> SendReminder(string email)
+        {
+            WaterMeterModel[] waterMeters = await DB.WaterMeters.Where(x => x.Email == email && !x.PaymentStatus).ToArrayAsync();
+            if (!waterMeters.Any())
+                return BadRequest(new { message = "Kõik arved on makstud" });
+            string subject = "Mäleta: Teie vee näitude maksmine";
+            string body = $@"
+                <html>
+                <body>
+                <div style=""font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px; border-radius: 8px;"">
+                <h2 style=""text-align: center; color: #333;"">Tere, {email}!</h2>
+                <p style=""font-size: 16px; color: #555;"">Teie järgmised vee näidud on endiselt tasumata:</p>
+                
+                <table style=""width: 100%; border-collapse: collapse; margin-top: 20px;"">
+                    <thead>
+                        <tr style=""background-color: #f1f1f1;"">
+                            <th style=""padding: 10px; border: 1px solid #ddd; text-align: left;"">Aadress</th>
+                            <th style=""padding: 10px; border: 1px solid #ddd; text-align: left;"">Korter</th>
+                            <th style=""padding: 10px; border: 1px solid #ddd; text-align: left;"">Külm vesi (m³)</th>
+                            <th style=""padding: 10px; border: 1px solid #ddd; text-align: left;"">Küppa vesi (m³)</th>
+                            <th style=""padding: 10px; border: 1px solid #ddd; text-align: left;"">Maksmise staatus</th>
+                        </tr>
+                    </thead>
+                        <tbody>";
+            foreach (var meter in waterMeters)
+            {
+                body += $@"
+                    <tr>
+                        <td style=""padding: 10px; border: 1px solid #ddd;"">{meter.Address}</td>
+                        <td style=""padding: 10px; border: 1px solid #ddd;"">{meter.Apartment}</td>
+                        <td style=""padding: 10px; border: 1px solid #ddd;"">{meter.ColdWater} m³</td>
+                        <td style=""padding: 10px; border: 1px solid #ddd;"">{meter.WarmWater} m³</td>
+                        <td style=""padding: 10px; border: 1px solid #ddd;"">Makse puudub</td>
+                    </tr>";
+            }
+            body += $@"
+                </tbody>
+                </table>
+
+                <p style=""font-size: 16px; color: #555; margin-top: 20px;"">
+                    Palun tasuge need arved niipea kui võimalik. Kui teil on küsimusi, võtke meiega ühendust.
+                </p>
+
+                <div style=""text-align: center; margin-top: 30px;"">
+                    <p style=""font-size: 14px; color: #777;"">Kui teil on küsimusi, võtke meiega ühendust.</p>
+                    <p style=""font-size: 14px; color: #888;"">Lugupidamisega, Teie Teenuse Pakkuja</p>
+                </div>
+            </div>
+            </body>
+            </html>";
+            SendEmail(email, subject, body);
+            return Ok(waterMeters);
+        }
+
         private static string SendEmail(string email, string subject, string body)
         {
             try
