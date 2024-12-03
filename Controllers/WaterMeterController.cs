@@ -228,6 +228,46 @@ namespace WaterMeterAPI.Controllers
             return Ok(waterMeters);
         }
 
+        // GET: WaterMeter/getReminder/id
+        [HttpGet("getReminder/{id}")]
+        public async Task<IActionResult> GetReminder(int id)
+        {
+            WaterMeterModel? waterMeter = await DB.WaterMeters.ElementAtNoTrack(id);
+            if (waterMeter == null)
+                return BadRequest("ID-andmetega veenäitu ei leitud");
+            if (waterMeter.PaymentStatus)
+                return BadRequest("Need veenäidud on tasutud");
+            string subject = "Mäleta: Teie vee näitude maksmine";
+            string body = $@"
+                <html>
+                <body>
+                <div style=""font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px; border-radius: 8px;"">
+                    <h2 style=""text-align: center; color: #333;"">Tere, {waterMeter.Email}!</h2>
+                    <p style=""font-size: 16px; color: #555;"">Teie vee näidud on endiselt tasumata. Palun vaadake järgmisi andmeid:</p>
+
+                    <p style=""font-size: 16px; color: #555;"">
+                        <strong>Aadress:</strong> {waterMeter.Address}<br />
+                        <strong>Korter:</strong> {waterMeter.Apartment}<br />
+                        <strong>Külm vesi:</strong> {waterMeter.ColdWater} m³<br />
+                        <strong>Küppa vesi:</strong> {waterMeter.WarmWater} m³<br />
+                        <strong>Maksmise staatus:</strong> Makse puudub
+                    </p>
+
+                    <p style=""font-size: 16px; color: #555; margin-top: 20px;"">
+                        Palun tasuge need arved niipea kui võimalik. Kui teil on küsimusi, võtke meiega ühendust.
+                    </p>
+
+                    <div style=""text-align: center; margin-top: 30px;"">
+                        <p style=""font-size: 14px; color: #777;"">Kui teil on küsimusi, võtke meiega ühendust.</p>
+                        <p style=""font-size: 14px; color: #888;"">Lugupidamisega, Teie Teenuse Pakkuja</p>
+                    </div>
+                </div>
+                </body>
+                </html>";
+            SendEmail(waterMeter.Email, subject, body);
+            return Ok(waterMeter);
+        }
+
         private static string SendEmail(string email, string subject, string body)
         {
             try
