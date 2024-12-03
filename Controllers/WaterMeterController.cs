@@ -52,8 +52,17 @@ namespace WaterMeterAPI.Controllers
 
         // POST: WaterMeter/createGivenNonExistentEmail/email/address/apartament/date/coldWater/warmWater/paymentStatus
         [HttpPost("createGivenNonExistentEmail/{email}/{address}/{apartament}/{date}/{coldWater}/{warmWater}/{paymentStatus}")]
-        public async Task<IActionResult> CreateGivenNonExistentEmail(string email, string address, int apartament, DateTime date, int coldWater, int warmWater, bool paymentStatus) => 
+        public async Task<IActionResult> CreateGivenNonExistentEmail(string email, string address, int apartament, DateTime date, int coldWater, int warmWater, bool paymentStatus) =>
             await CreateWaterMeter(email, address, apartament, date, coldWater, warmWater, paymentStatus);
 
+        // GET: WaterMeter/getMonthlyBill/email/month
+        [HttpGet("getMonthlyBill/{email}/{year}/{month}")]
+        public async Task<IActionResult> GetMonthlyBill(string email, int year, int month)
+        {
+            WaterMeterModel? waterMeter = await DB.WaterMeters.FirstOrDefaultAsync(x => x.Date.Year == year && x.Date.Month == month && x.Email == email);
+            if (waterMeter == null)
+                return BadRequest(new { message = "Sellel inimesel puuduvad selle kuu veemõõtjate näidud" });
+            return Ok(waterMeter);
+        }
     }
 }
