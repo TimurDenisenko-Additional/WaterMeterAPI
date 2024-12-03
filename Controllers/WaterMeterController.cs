@@ -228,6 +228,18 @@ namespace WaterMeterAPI.Controllers
             return Ok(waterMeters);
         }
 
+        // GET: WaterMeter/getWaterMeterForYear/year
+        [HttpGet("getWaterMeterForYear/{year}")]
+        public async Task<IActionResult> GetWaterMeterForYear(int year)
+        {
+            if (!TryGetCurrentUser()?.Role.Equals("Admin") ?? true)
+                return BadRequest("See toiming on lubatud ainult administraatorile");
+            WaterMeterModel[] waterMeters = await DB.WaterMeters.Where(x => x.Date.Year == year).ToArrayAsync();
+            if (!waterMeters.Any())
+                return BadRequest("Selle aasta veenäitu ei leitud");
+            return Ok(waterMeters);
+        }
+
         // GET: WaterMeter/getReminder/id
         [HttpGet("getReminder/{id}")]
         public async Task<IActionResult> GetReminder(int id)
