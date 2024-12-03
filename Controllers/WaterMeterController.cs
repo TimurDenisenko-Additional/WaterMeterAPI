@@ -24,20 +24,33 @@ namespace WaterMeterAPI.Controllers
 
         // GET: WaterMeter
         [HttpGet]
-        public List<WaterMeterModel> GetWaterMeters() => [.. DB.WaterMeters];
+        public IActionResult GetWaterMeters() 
+        {
+            if (!TryGetCurrentUser()?.Role.Equals("Admin") ?? true)
+                return BadRequest("See toiming on lubatud ainult administraatorile");
+            return Ok(DB.WaterMeters); 
+        }
 
         // GET: WaterMeter/id
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetWaterMeter(int id) => await DB.WaterMeters.ElementAtNoTrack(id) == null ?
-            BadRequest(new { message = "Veenäitu ei leitud" }) : Ok(await DB.WaterMeters.ElementAtNoTrack(id));
+        public async Task<IActionResult> GetWaterMeter(int id)
+        {
+            if (!TryGetCurrentUser()?.Role.Equals("Admin") ?? true)
+                return BadRequest("See toiming on lubatud ainult administraatorile");
+            if (await DB.WaterMeters.ElementAtNoTrack(id) == null)
+                return BadRequest("Veenäitu ei leitud");
+            return Ok(await DB.WaterMeters.ElementAtNoTrack(id));
+        }
 
         // DELETE: WaterMeter/delete/id
         [HttpDelete("delete/{id}")]
         public async Task<IActionResult> Delete(int id)
         {
+            if (!TryGetCurrentUser()?.Role.Equals("Admin") ?? true)
+                return BadRequest("See toiming on lubatud ainult administraatorile");
             WaterMeterModel? waterMeter = await DB.WaterMeters.ElementAtWithTrack(id);
             if (waterMeter == null)
-                return BadRequest(new { message = "Veenäitu ei leitud" });
+                return BadRequest("Veenäitu ei leitud");
             DB.WaterMeters.Remove(waterMeter);
             await DB.SaveChangesAsync();
             return Ok(DB.WaterMeters);
@@ -53,17 +66,23 @@ namespace WaterMeterAPI.Controllers
         [HttpPost("create/{email}/{address}/{apartament}/{date}/{coldWater}/{warmWater}/{paymentStatus}")]
         public async Task<IActionResult> Create(string email, string address, int apartament, DateTime date, int coldWater, int warmWater, bool paymentStatus)
         {
+            if (!TryGetCurrentUser()?.Role.Equals("Admin") ?? true)
+                return BadRequest("See toiming on lubatud ainult administraatorile");
             if (await DB.Accounts.Where(x => x.Email == email).AnyAsync())
             {
                 return await CreateWaterMeter(email, address, apartament, date, coldWater, warmWater, paymentStatus);
             }
-            return BadRequest(new { message = "Kasutaja ei leitud" });
+            return BadRequest("Kasutaja ei leitud");
         }
 
         // POST: WaterMeter/createGivenNonExistentEmail/email/address/apartament/date/coldWater/warmWater/paymentStatus
         [HttpPost("createGivenNonExistentEmail/{email}/{address}/{apartament}/{date}/{coldWater}/{warmWater}/{paymentStatus}")]
-        public async Task<IActionResult> CreateGivenNonExistentEmail(string email, string address, int apartament, DateTime date, int coldWater, int warmWater, bool paymentStatus) =>
-            await CreateWaterMeter(email, address, apartament, date, coldWater, warmWater, paymentStatus);
+        public async Task<IActionResult> CreateGivenNonExistentEmail(string email, string address, int apartament, DateTime date, int coldWater, int warmWater, bool paymentStatus)
+        {
+            if (!TryGetCurrentUser()?.Role.Equals("Admin") ?? true)
+                return BadRequest("See toiming on lubatud ainult administraatorile");
+            return await CreateWaterMeter(email, address, apartament, date, coldWater, warmWater, paymentStatus);
+        }
 
         // POST: WaterMeter/addWaterMeter/address/apartament/coldWater/warmWater
         [HttpPost("addWaterMeter/{address}/{apartament}/{coldWater}/{warmWater}")]
@@ -71,7 +90,7 @@ namespace WaterMeterAPI.Controllers
         {
             AccountModel? currentUser = TryGetCurrentUser();
             if (currentUser == null)
-                return BadRequest(new { message = "Te ei ole sisse logitud" });
+                return BadRequest("Te ei ole sisse logitud");
             string subject = "Põhjalik kinnitamine: vee näitude lisamine";
             string body = $@"
                 <html>
@@ -106,10 +125,10 @@ namespace WaterMeterAPI.Controllers
         {
             AccountModel? currentUser = TryGetCurrentUser();
             if (currentUser == null)
-                return BadRequest(new { message = "Te ei ole sisse logitud" });
+                return BadRequest("Te ei ole sisse logitud");
             WaterMeterModel? waterMeter = await DB.WaterMeters.FirstOrDefaultAsync(x => x.Date.Year == year && x.Date.Month == month && x.Email == currentUser.Email);
             if (waterMeter == null)
-                return BadRequest(new { message = "Sellel inimesel puuduvad selle kuu veemõõtjate näidud" });
+                return BadRequest("Sellel inimesel puuduvad selle kuu veemõõtjate näidud");
 
             string body = @$"
                 <html>
@@ -155,9 +174,11 @@ namespace WaterMeterAPI.Controllers
         [HttpGet("sendReminder/{email}")]
         public async Task<IActionResult> SendReminder(string email)
         {
+            if (!TryGetCurrentUser()?.Role.Equals("Admin") ?? true)
+                return BadRequest("See toiming on lubatud ainult administraatorile");
             WaterMeterModel[] waterMeters = await DB.WaterMeters.Where(x => x.Email == email && !x.PaymentStatus).ToArrayAsync();
             if (!waterMeters.Any())
-                return BadRequest(new { message = "Kõik arved on makstud" });
+                return BadRequest("Kõik arved on makstud");
             string subject = "Mäleta: Teie vee näitude maksmine";
             string body = $@"
                 <html>

@@ -24,20 +24,33 @@ namespace WaterMeterAPI.Controllers
 
         // GET: Account
         [HttpGet]
-        public List<AccountModel> GetAccounts() => [.. DB.Accounts];
+        public IActionResult GetAccounts() 
+        {
+            if (!TryGetCurrentUser()?.Role.Equals("Admin") ?? true)
+                return BadRequest("See toiming on lubatud ainult administraatorile");
+            return Ok(DB.Accounts);
+        }
 
         // GET: Account/id
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetAccountModel(int id) => await DB.Accounts.ElementAtNoTrack(id) == null ? 
-            BadRequest(new { message = "Kasutajat ei leitud" }) : Ok(await DB.Accounts.ElementAtNoTrack(id));
+        public async Task<IActionResult> GetAccountModel(int id)
+        {
+            if (!TryGetCurrentUser()?.Role.Equals("Admin") ?? true)
+                return BadRequest("See toiming on lubatud ainult administraatorile");
+            if (await DB.Accounts.ElementAtNoTrack(id) == null)
+                return BadRequest("Kasutajat ei leitud");
+            return Ok(await DB.Accounts.ElementAtNoTrack(id));
+        }
 
         // DELETE: Account/delete/id
         [HttpDelete("delete/{id}")]
         public async Task<IActionResult> Delete(int id)
         {
+            if (!TryGetCurrentUser()?.Role.Equals("Admin") ?? true)
+                return BadRequest("See toiming on lubatud ainult administraatorile");
             AccountModel? AccountModel = await DB.Accounts.ElementAtWithTrack(id);
             if (AccountModel == null)
-                return BadRequest(new { message = "Kasutajat ei leitud" });
+                return BadRequest("Kasutajat ei leitud");
             DB.Accounts.Remove(AccountModel);
             await DB.SaveChangesAsync();
             return Ok(DB.Accounts);
@@ -47,13 +60,15 @@ namespace WaterMeterAPI.Controllers
         [HttpPost("create/{firstname}/{lastname}/{gender}/{email}/{password}")]
         public async Task<IActionResult> Create(string firstname, string lastname, string gender, string email, string password)
         {
+            if (!TryGetCurrentUser()?.Role.Equals("Admin") ?? true)
+                return BadRequest("See toiming on lubatud ainult administraatorile");
             if (!await DB.Accounts.Where(x => x.Email == email).AnyAsync())
             {
                 await DB.Accounts.AddAsync(new AccountModel(0, firstname, lastname, gender, email, password, "User"));
                 await DB.SaveChangesAsync();
                 return Ok(DB.Accounts);
             }
-            return BadRequest(new { message = "Dubleeritud Kasutaja" });
+            return BadRequest("Dubleeritud Kasutaja");
         }
 
         // GET: Account/login/username/password
@@ -68,7 +83,7 @@ namespace WaterMeterAPI.Controllers
             }
             else
             {
-                return BadRequest("Vale parool või AccountModelnimi");
+                return BadRequest("Vale parool või nimi");
             }
         }
 
@@ -84,7 +99,7 @@ namespace WaterMeterAPI.Controllers
             }
             else
             {
-                return BadRequest(new { message = "Dubleeritud AccountModel" });
+                return BadRequest("Dubleeritud kasutajat");
             }
         }
 
@@ -94,7 +109,7 @@ namespace WaterMeterAPI.Controllers
         public IActionResult GetFullName()
         {
             AccountModel? currentUser = TryGetCurrentUser();
-            return currentUser == null ? BadRequest(new { message = "Kasutajat ei leitud" }) : Ok($"{currentUser.FirstName} {currentUser.LastName}");
+            return currentUser == null ? BadRequest("Kasutajat ei leitud") : Ok($"{currentUser.FirstName} {currentUser.LastName}");
         }
 
         // GET: Account/isAdmin
@@ -107,7 +122,7 @@ namespace WaterMeterAPI.Controllers
         public IActionResult GetCurrentUser()
         {
             _memoryCache.TryGetValue("currentUser", out AccountModel? account);
-            return account == null ? BadRequest(new { message = "Kasutajat ei leitud" }) : Ok(account);
+            return account == null ? BadRequest("Kasutajat ei leitud") : Ok(account);
         }
 
         // GET: Account/isAuthorized
@@ -125,7 +140,7 @@ namespace WaterMeterAPI.Controllers
                 return Ok(new { message = "Ole välja logitud" });
             }
             else
-                return BadRequest(new { message = "Sa ei ole sisse logitud" });
+                return BadRequest("Sa ei ole sisse logitud");
         }
     }
 }
