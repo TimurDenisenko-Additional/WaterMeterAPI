@@ -152,7 +152,7 @@ namespace WaterMeterAPI.Controllers
         }
 
         // GET: WaterMeter/sendReminder/email
-        [HttpGet]
+        [HttpGet("sendReminder/{email}")]
         public async Task<IActionResult> SendReminder(string email)
         {
             WaterMeterModel[] waterMeters = await DB.WaterMeters.Where(x => x.Email == email && !x.PaymentStatus).ToArrayAsync();
