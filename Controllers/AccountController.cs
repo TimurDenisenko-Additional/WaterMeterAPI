@@ -8,7 +8,7 @@ namespace WaterMeterAPI.Controllers
 {
     [Route("[controller]")]
     [ApiController]
-    public class AccountModelController(DBContext DB, IMemoryCache memoryCache) : ControllerBase
+    public class AccountController(DBContext DB, IMemoryCache memoryCache) : ControllerBase
     {
         private IMemoryCache _memoryCache { get; } = memoryCache;
 
@@ -22,16 +22,16 @@ namespace WaterMeterAPI.Controllers
                 _memoryCache.Remove("currentUser");
         }
 
-        // GET: AccountModel
+        // GET: Account
         [HttpGet]
         public List<AccountModel> GetAccounts() => [.. DB.Accounts];
 
-        // GET: AccountModel/id
+        // GET: Account/id
         [HttpGet("{id}")]
         public async Task<IActionResult> GetAccountModel(int id) => await DB.Accounts.ElementAtNoTrack(id) == null ? 
             BadRequest(new { message = "Kasutajat ei leitud" }) : Ok(await DB.Accounts.ElementAtNoTrack(id));
 
-        // DELETE: AccountModel/delete/id
+        // DELETE: Account/delete/id
         [HttpDelete("delete/{id}")]
         public async Task<IActionResult> Delete(int id)
         {
@@ -43,7 +43,7 @@ namespace WaterMeterAPI.Controllers
             return Ok(DB.Accounts);
         }
 
-        // POST: AccountModel/create/firstname/lastname/gender/email/password
+        // POST: Account/create/firstname/lastname/gender/email/password
         [HttpPost("create/{firstname}/{lastname}/{gender}/{email}/{password}")]
         public async Task<IActionResult> Create(string firstname, string lastname, string gender, string email, string password)
         {
@@ -56,7 +56,7 @@ namespace WaterMeterAPI.Controllers
             return BadRequest(new { message = "Dubleeritud Kasutaja" });
         }
 
-        // GET: AccountModel/login/username/password
+        // GET: Account/login/username/password
         [HttpGet("login/{email}/{password}")]
         public async Task<IActionResult> Login(string email, string password)
         {
@@ -72,7 +72,7 @@ namespace WaterMeterAPI.Controllers
             }
         }
 
-        // POST: AccountModel/register/firstname/lastname/gender/email/password
+        // POST: Account/register/firstname/lastname/gender/email/password
         [HttpPost("register/{firstname}/{lastname}/{gender}/{email}/{password}")]
         public async Task<IActionResult> Register(string firstname, string lastname, string gender, string email, string password)
         {
@@ -89,7 +89,7 @@ namespace WaterMeterAPI.Controllers
         }
 
 
-        // GET: AccountModel/fullName
+        // GET: Account/fullName
         [HttpGet("fullName")]
         public IActionResult GetFullName()
         {
@@ -97,12 +97,12 @@ namespace WaterMeterAPI.Controllers
             return currentUser == null ? BadRequest(new { message = "Kasutajat ei leitud" }) : Ok($"{currentUser.FirstName} {currentUser.LastName}");
         }
 
-        // GET: AccountModel/isAdmin
+        // GET: Account/isAdmin
         [HttpGet("isAdmin")]
         public bool IsAdmin() =>
             (TryGetCurrentUser()?.Role ?? "") == "Admin";
 
-        // GET: AccountModel/currentUser
+        // GET: Account/currentUser
         [HttpGet("currentUser")]
         public IActionResult GetCurrentUser()
         {
@@ -110,12 +110,12 @@ namespace WaterMeterAPI.Controllers
             return account == null ? BadRequest(new { message = "Kasutajat ei leitud" }) : Ok(account);
         }
 
-        // GET: AccountModel/isAuthorized
+        // GET: Account/isAuthorized
         [HttpGet("isAuthorized")]
         public bool IsAuthorized() =>
             TryGetCurrentUser() != null;
 
-        // GET: AccountModel/logout
+        // GET: Account/logout
         [HttpGet("logout")]
         public IActionResult Logout()
         {
