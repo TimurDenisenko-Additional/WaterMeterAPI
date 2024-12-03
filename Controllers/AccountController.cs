@@ -26,9 +26,9 @@ namespace WaterMeterAPI.Controllers
         [HttpGet]
         public IActionResult GetAccounts() 
         {
-            if (!TryGetCurrentUser()?.Role.Equals("Admin") ?? true)
-                return BadRequest("See toiming on lubatud ainult administraatorile");
-            return Ok(DB.Accounts);
+            //if (!TryGetCurrentUser()?.Role.Equals("Admin") ?? true)
+            //    return BadRequest("See toiming on lubatud ainult administraatorile");
+            return Ok(DB.Accounts.ToArray());
         }
 
         // GET: Account/id
