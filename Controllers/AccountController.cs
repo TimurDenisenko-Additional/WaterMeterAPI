@@ -26,8 +26,8 @@ namespace WaterMeterAPI.Controllers
         [HttpGet]
         public IActionResult GetAccounts() 
         {
-            //if (!TryGetCurrentUser()?.Role.Equals("Admin") ?? true)
-            //    return BadRequest("See toiming on lubatud ainult administraatorile");
+            if (!TryGetCurrentUser()?.Role.Equals("Admin") ?? true)
+                return BadRequest("See toiming on lubatud ainult administraatorile");
             return Ok(DB.Accounts.ToArray());
         }
 
@@ -56,15 +56,16 @@ namespace WaterMeterAPI.Controllers
             return Ok(DB.Accounts);
         }
 
-        // POST: Account/create/firstname/lastname/gender/email/password
-        [HttpPost("create/{firstname}/{lastname}/{gender}/{email}/{password}")]
-        public async Task<IActionResult> Create(string firstname, string lastname, string gender, string email, string password)
+        // POST: Account/create
+        [HttpPost("create")]
+        public async Task<IActionResult> Create([FromBody] AccountModel model)
         {
             if (!TryGetCurrentUser()?.Role.Equals("Admin") ?? true)
                 return BadRequest("See toiming on lubatud ainult administraatorile");
-            if (!await DB.Accounts.Where(x => x.Email == email).AnyAsync())
+            if (!await DB.Accounts.Where(x => x.Email == model.Email).AnyAsync())
             {
-                await DB.Accounts.AddAsync(new AccountModel(0, firstname, lastname, gender, email, password, "User"));
+                model.Role = "User";
+                await DB.Accounts.AddAsync(model);
                 await DB.SaveChangesAsync();
                 return Ok(DB.Accounts);
             }
@@ -87,14 +88,14 @@ namespace WaterMeterAPI.Controllers
             }
         }
 
-        // POST: Account/register/firstname/lastname/gender/email/password
-        [HttpPost("register/{firstname}/{lastname}/{gender}/{email}/{password}")]
-        public async Task<IActionResult> Register(string firstname, string lastname, string gender, string email, string password)
+        // POST: Account/register
+        [HttpPost("register")]
+        public async Task<IActionResult> Register([FromBody] AccountModel model)
         {
-            if (!await DB.Accounts.AnyAsync(x => x.Email == email))
+            if (!await DB.Accounts.AnyAsync(x => x.Email == model.Email))
             {
-                await Create(firstname, lastname, gender, email, password);
-                SetCurrentUser(await DB.Accounts.FirstAsync(x => x.Email == email));
+                await Create(model);
+                SetCurrentUser(await DB.Accounts.FirstAsync(x => x.Email == model.Email));
                 return Ok(true);
             }
             else
