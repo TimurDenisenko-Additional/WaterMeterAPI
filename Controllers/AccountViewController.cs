@@ -112,7 +112,17 @@ namespace WaterMeterAPI.Controllers
             return View();
         }
 
-        // POST: Account
+        // POST: AccountView/Register
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<ActionResult> Register(AccountModel acc)
+        {
+            Tuple<bool, string?, string?> checkPassword = await ApiRequest<string>($"register", "POST", acc);
+            if (!checkPassword.Item1)
+                return View("Error", checkPassword.Item2);
+            ViewData.Model = (await ApiRequest<AccountModel>($"currentUser")).Item3;
+            return RedirectToAction("Index", "WaterMeterView");
+        }
 
         // GET: AccountView/Login
         public ActionResult Login()
