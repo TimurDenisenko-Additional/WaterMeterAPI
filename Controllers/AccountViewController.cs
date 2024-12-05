@@ -10,7 +10,7 @@ namespace WaterMeterAPI.Controllers
     {
         private readonly HttpClient client = httpClientFactory.CreateClient("ApiClient");
 
-        private async Task<Tuple<bool, string?, T?>> ApiRequest<T>(string request = "", string action = "Get", AccountModel? model = null) where T : class
+        public async Task<Tuple<bool, string?, T?>> ApiRequest<T>(string request = "", string action = "Get", AccountModel? model = null) where T : class
         {
             try
             {
@@ -104,6 +104,18 @@ namespace WaterMeterAPI.Controllers
             if (!account.Item1)
                 return View("Error", account.Item2);
             return View(nameof(Index), account.Item3);
+        }
+
+        // GET: AccountView/Register
+        public ActionResult Register()
+        {
+            return View();
+        }
+
+        // GET: AccountView/Login
+        public ActionResult Login()
+        {
+            return View();
         }
     }
 }
