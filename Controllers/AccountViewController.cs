@@ -69,8 +69,8 @@ namespace WaterMeterAPI.Controllers
         }
 
         // POST: AccountView/Create
-        [HttpPost]
         [ValidateAntiForgeryToken]
+        [HttpPost]
         public async Task<ActionResult> Create(AccountModel accountModel)
         {
             try
