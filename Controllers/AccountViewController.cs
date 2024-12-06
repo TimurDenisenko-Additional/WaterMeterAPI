@@ -144,5 +144,14 @@ namespace WaterMeterAPI.Controllers
                 return RedirectToAction(nameof(Index));
             return RedirectToAction("Index", "WaterMeterView");
         }
+
+        public async Task<ActionResult> Logout()
+        {
+            Tuple<bool, string?, string?> logout = await ApiRequest<string>($"logout");
+            if (!logout.Item1)
+                return View("Error", logout.Item2);
+            return RedirectToAction(nameof(Register));
+
+        }
     }
 }

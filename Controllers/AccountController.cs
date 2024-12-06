@@ -138,7 +138,7 @@ namespace WaterMeterAPI.Controllers
             if (IsAuthorized())
             {
                 SetCurrentUser(null);
-                return Ok(new { message = "Ole välja logitud" });
+                return Ok("Ole välja logitud");
             }
             else
                 return BadRequest("Sa ei ole sisse logitud");
